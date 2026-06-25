@@ -1,0 +1,6 @@
+{
+  "name": "WaTTrack",
+  "description": "A professional home energy audit app designed by Idnafen. Log devices, calculate daily load curves, analyze monthly & annual costs, access target efficiency tips, and export custom PDF reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
