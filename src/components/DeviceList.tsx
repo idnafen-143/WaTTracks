@@ -1,6 +1,7 @@
 import React from 'react';
 import { Device, CategoryId } from '../types';
 import { CATEGORIES } from '../data/categories';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Trash2, 
   ThermometerSnowflake, 
@@ -40,11 +41,13 @@ export default function DeviceList({
   onUpdateDevice,
   onDeleteDevice
 }: DeviceListProps) {
+  const { t } = useLanguage();
+
   if (devices.length === 0) {
     return (
       <div id="device-list-empty" className="bg-brand-panel border border-brand-border p-6 text-center text-brand-text rounded-none">
-        <p className="text-xs font-mono font-black uppercase">AUDIT INVENTORY REGISTER IS EMPTY</p>
-        <p className="text-xs font-serif italic mt-1">Use the form above to add an appliance or load a template project.</p>
+        <p className="text-xs font-mono font-black uppercase">{t('emptyListHeader')}</p>
+        <p className="text-xs font-serif italic mt-1">{t('emptyListSub')}</p>
       </div>
     );
   }
@@ -53,10 +56,10 @@ export default function DeviceList({
     <div id="device-list-container" className="bg-brand-panel border border-brand-border rounded-none overflow-hidden shadow-none">
       <div className="px-4 py-3 bg-brand-header border-b border-brand-border flex items-center justify-between">
         <h3 className="text-xs font-mono uppercase tracking-wider text-brand-text font-black">
-          AUDITED DEVICE REGISTER ({devices.length})
+          {t('auditedDeviceRegister', { count: devices.length })}
         </h3>
         <span className="text-[10px] text-brand-text font-mono opacity-60">
-          HORIZONTAL SCROLL ENABLED
+          {t('scrollEnabled')}
         </span>
       </div>
 
@@ -64,14 +67,14 @@ export default function DeviceList({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-brand-tablehead border-b border-brand-border text-brand-text font-mono text-[10px] tracking-wider uppercase font-black">
-              <th className="py-2.5 px-4 border-r border-brand-border">DEVICE DESIGNATION</th>
-              <th className="py-2.5 px-3 border-r border-brand-border">CATEGORY</th>
-              <th className="py-2.5 px-3 text-right border-r border-brand-border">POWER (W)</th>
-              <th className="py-2.5 px-3 text-center border-r border-brand-border">DAILY HRS</th>
-              <th className="py-2.5 px-3 text-center border-r border-brand-border">QTY</th>
-              <th className="py-2.5 px-3 text-right border-r border-brand-border">DAILY KWH</th>
-              <th className="py-2.5 px-3 text-right border-r border-brand-border">ANNUAL COST</th>
-              <th className="py-2.5 px-4 text-center">ACTION</th>
+              <th className="py-2.5 px-4 border-r border-brand-border">{t('colDesignation')}</th>
+              <th className="py-2.5 px-3 border-r border-brand-border">{t('colCategory')}</th>
+              <th className="py-2.5 px-3 text-right border-r border-brand-border">{t('colPower')}</th>
+              <th className="py-2.5 px-3 text-center border-r border-brand-border">{t('colDailyHrs')}</th>
+              <th className="py-2.5 px-3 text-center border-r border-brand-border">{t('colQty')}</th>
+              <th className="py-2.5 px-3 text-right border-r border-brand-border">{t('colDailyKwh')}</th>
+              <th className="py-2.5 px-3 text-right border-r border-brand-border">{t('colAnnualCost')}</th>
+              <th className="py-2.5 px-4 text-center">{t('colAction')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-brand-border bg-white">
@@ -93,7 +96,7 @@ export default function DeviceList({
                       <span className="font-bold uppercase truncate" title={device.name}>{device.name}</span>
                       {isHog && (
                         <span className="inline-flex items-center gap-1 text-[9px] text-red-700 font-bold bg-red-100 border border-red-700 px-1 py-0.5 rounded-none w-max">
-                          <AlertTriangle className="w-3 h-3 text-red-700" /> CONSUMPTION HOG
+                          <AlertTriangle className="w-3 h-3 text-red-700" /> {t('consumptionHog')}
                         </span>
                       )}
                     </div>
@@ -101,7 +104,7 @@ export default function DeviceList({
                   <td className="py-2 px-3 text-brand-text border-r border-brand-border">
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[10px] font-mono uppercase border border-brand-border bg-brand-panel text-brand-text">
                       <Icon className="w-3 h-3" />
-                      {cat?.label.toUpperCase() || device.category.toUpperCase()}
+                      {cat ? t(cat.id).toUpperCase() : device.category.toUpperCase()}
                     </span>
                   </td>
                   <td className="py-2 px-3 text-right font-mono text-brand-text border-r border-brand-border">

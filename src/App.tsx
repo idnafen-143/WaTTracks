@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Project, Device, AuditSummary } from './types';
 import ProjectSelector from './components/ProjectSelector';
 import DeviceForm from './components/DeviceForm';
 import DeviceList from './components/DeviceList';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import TipsPanel from './components/TipsPanel';
+import { useLanguage } from './context/LanguageContext';
 import { 
   Zap, 
   BarChart3, 
@@ -13,8 +14,9 @@ import {
   CheckCircle,
   HelpCircle,
   BookmarkCheck,
-  Smartphone,
-  X
+  X,
+  Upload,
+  Download
 } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'wattrack_projects_db';
@@ -25,6 +27,7 @@ const SAMPLE_AUDIT: Project = {
   id: 'suburban_villa_demo',
   name: 'Modern Suburban Villa',
   clientName: 'The Miller Household',
+  auditorName: 'IDNAFEN',
   createdAt: new Date().toISOString(),
   ratePerKWh: 0.16,
   currency: '$',
@@ -43,10 +46,11 @@ const SAMPLE_AUDIT: Project = {
 };
 
 export default function App() {
+  const { language, setLanguage, t } = useLanguage();
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string>('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
-  const [showMobileModal, setShowMobileModal] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Initial Mount: Load from localStorage or seed first project ---
   useEffect(() => {
@@ -72,6 +76,7 @@ export default function App() {
       id: 'default_audit',
       name: 'Primary Residence',
       clientName: '',
+      auditorName: 'IDNAFEN',
       createdAt: new Date().toISOString(),
       devices: [],
       ratePerKWh: 0.15,
@@ -106,14 +111,132 @@ export default function App() {
     }
   }, [toast]);
 
+  // --- Export and Import JSON Functions ---
+  const handleExportJSON = () => {
+    if (projects.length === 0) {
+      triggerToast(t('toastNoAuditsExport'), 'info');
+      return;
+    }
+    try {
+      const dataStr = JSON.stringify(projects, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `wattrack_audits_export_${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      triggerToast(t('toastExportSuccess'), 'success');
+    } catch (err) {
+      console.error(err);
+      triggerToast(t('toastExportFail'), 'info');
+    }
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result;
+        if (typeof text !== 'string') {
+          triggerToast(t('toastReadFail'), 'info');
+          return;
+        }
+
+        const parsed = JSON.parse(text);
+        let rawProjects: any[] = [];
+
+        if (Array.isArray(parsed)) {
+          rawProjects = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+          rawProjects = [parsed];
+        } else {
+          triggerToast(t('toastInvalidFile'), 'info');
+          return;
+        }
+
+        // Convert and sanitize each object into a proper Project object
+        const sanitizedProjects: Project[] = [];
+        rawProjects.forEach((item, index) => {
+          if (item && typeof item === 'object') {
+            const name = item.name || item.projectName || `Imported Audit ${index + 1}`;
+            // If the item doesn't have an ID, we generate a fresh one
+            const id = item.id || `proj_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`;
+            const devices = Array.isArray(item.devices) 
+              ? item.devices.map((d: any, dIdx: number) => ({
+                  id: d.id || `dev_${Date.now()}_${dIdx}_${Math.floor(Math.random() * 1000)}`,
+                  name: d.name || 'Unnamed Device',
+                  category: d.category || 'other',
+                  watts: typeof d.watts === 'number' ? d.watts : 100,
+                  hoursPerDay: typeof d.hoursPerDay === 'number' ? d.hoursPerDay : 1,
+                  quantity: typeof d.quantity === 'number' ? d.quantity : 1,
+                }))
+              : [];
+            
+            const clientName = item.clientName || '';
+            const auditorName = item.auditorName || 'IDNAFEN';
+            const ratePerKWh = typeof item.ratePerKWh === 'number' ? item.ratePerKWh : 0.15;
+            const currency = item.currency || '$';
+            const savedTipIds = Array.isArray(item.savedTipIds) ? item.savedTipIds : [];
+            const customTips = Array.isArray(item.customTips) ? item.customTips : [];
+            const createdAt = item.createdAt || new Date().toISOString();
+
+            sanitizedProjects.push({
+              id,
+              name,
+              clientName,
+              auditorName,
+              createdAt,
+              devices,
+              ratePerKWh,
+              currency,
+              savedTipIds,
+              customTips
+            });
+          }
+        });
+
+        if (sanitizedProjects.length === 0) {
+          triggerToast(t('toastNoValidAudits'), 'info');
+          return;
+        }
+
+        setProjects(prev => {
+          const merged = [...prev];
+          sanitizedProjects.forEach(ip => {
+            const existingIndex = merged.findIndex(p => p.id === ip.id);
+            if (existingIndex >= 0) {
+              merged[existingIndex] = ip; // Overwrite existing if matching ID
+            } else {
+              merged.push(ip); // Append as new
+            }
+          });
+
+          // Set the first imported project as active
+          setCurrentProjectId(sanitizedProjects[0].id);
+          return merged;
+        });
+
+        triggerToast(t('toastImportSuccess', { count: sanitizedProjects.length }), 'success');
+      } catch (err) {
+        console.error(err);
+        triggerToast(t('toastParseFail') + ': ' + (err instanceof Error ? err.message : 'Unknown error'), 'info');
+      }
+    };
+    reader.onerror = () => {
+      triggerToast(t('toastReadFail'), 'info');
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input element
+  };
+
   // --- Computed Stats for Active Project ---
   const activeProject = useMemo(() => {
     return projects.find(p => p.id === currentProjectId) || null;
   }, [projects, currentProjectId]);
-
-  const qrCodeUrl = useMemo(() => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent('https://heartfelt-frangollo-7d9b54.netlify.app')}`;
-  }, []);
 
   const summaryStats = useMemo((): AuditSummary => {
     if (!activeProject) {
@@ -156,14 +279,15 @@ export default function App() {
   // --- Handlers ---
   const handleSelectProject = (id: string) => {
     setCurrentProjectId(id);
-    triggerToast(`Switched active audit profile`, 'info');
+    triggerToast(t('toastSwitchProfile'), 'info');
   };
 
-  const handleCreateProject = (name: string, clientName?: string, rate?: number, currency?: string) => {
+  const handleCreateProject = (name: string, clientName?: string, rate?: number, currency?: string, auditorName?: string) => {
     const newProj: Project = {
       id: `proj_${Date.now()}`,
       name,
       clientName: clientName || '',
+      auditorName: auditorName || '',
       createdAt: new Date().toISOString(),
       devices: [],
       ratePerKWh: rate !== undefined ? rate : 0.15,
@@ -171,12 +295,12 @@ export default function App() {
     };
     setProjects(prev => [...prev, newProj]);
     setCurrentProjectId(newProj.id);
-    triggerToast(`Created new audit "${name}"!`);
+    triggerToast(t('toastCreateSuccess', { name }));
   };
 
   const handleUpdateProject = (id: string, updates: Partial<Project>) => {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-    triggerToast(`Audit configuration updated`);
+    triggerToast(t('toastUpdateSuccess'));
   };
 
   const handleDeleteProject = (id: string) => {
@@ -184,7 +308,7 @@ export default function App() {
     if (remaining.length > 0) {
       setProjects(remaining);
       setCurrentProjectId(remaining[0].id);
-      triggerToast(`Audit profile deleted`, 'info');
+      triggerToast(t('toastDeleteSuccess'), 'info');
     }
   };
 
@@ -193,13 +317,13 @@ export default function App() {
     const exists = projects.some(p => p.id === 'suburban_villa_demo');
     if (exists) {
       setCurrentProjectId('suburban_villa_demo');
-      triggerToast(`Sample Villa audit already loaded!`, 'info');
+      triggerToast(t('toastDemoAlreadyLoaded'), 'info');
       return;
     }
 
     setProjects(prev => [SAMPLE_AUDIT, ...prev.filter(p => p.id !== 'default_audit' || p.devices.length > 0)]);
     setCurrentProjectId(SAMPLE_AUDIT.id);
-    triggerToast(`Successfully loaded Suburban Villa template!`);
+    triggerToast(t('toastDemoLoaded'));
   };
 
   const handleAddDevice = (newDevice: Omit<Device, 'id'>) => {
@@ -217,7 +341,7 @@ export default function App() {
       }
       return p;
     }));
-    triggerToast(`Added ${newDevice.name} to inventory!`);
+    triggerToast(t('toastAddDevice', { name: newDevice.name }));
   };
 
   const handleUpdateDevice = (deviceId: string, updates: Partial<Device>) => {
@@ -246,7 +370,7 @@ export default function App() {
       return p;
     }));
     if (itemToDelete) {
-      triggerToast(`Removed ${itemToDelete.name}`, 'info');
+      triggerToast(t('toastRemoveDevice', { name: itemToDelete.name }), 'info');
     }
   };
 
@@ -256,8 +380,15 @@ export default function App() {
       <header className="border-b border-brand-border bg-brand-header sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-brand-dark flex items-center justify-center shrink-0">
-              <div className="w-4 h-4 border-2 border-brand-bg rotate-45"></div>
+            <div className="w-9 h-9 bg-brand-dark border border-brand-border flex flex-col items-center justify-center shrink-0 relative overflow-hidden font-mono select-none">
+              {/* Engineering grid style lines */}
+              <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:4px_4px] opacity-40"></div>
+              {/* Corner accent */}
+              <div className="absolute top-0 left-0 w-2 h-[1px] bg-emerald-400"></div>
+              <div className="absolute top-0 left-0 w-[1px] h-2 bg-emerald-400"></div>
+              {/* WT Text */}
+              <span className="font-black text-xs tracking-wider text-emerald-400 z-10 leading-none">W</span>
+              <span className="font-black text-[9px] tracking-wider text-brand-darktext z-10 leading-none -mt-0.5">T</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold tracking-tighter text-brand-dark uppercase">
@@ -265,36 +396,64 @@ export default function App() {
               </span>
               <div className="h-5 w-px bg-brand-dark opacity-20 hidden sm:block"></div>
               <span className="hidden sm:inline-block text-brand-text text-sm font-serif italic">
-                Audit: <span className="font-sans font-bold not-italic">{activeProject?.name || 'Untitled_Project'}</span>
+                {t('auditLabel')}: <span className="font-sans font-bold not-italic">{activeProject?.name || 'Untitled_Project'}</span>
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 text-[10px] uppercase tracking-widest font-bold">
+          <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest font-bold">
             <div className="hidden md:flex items-center gap-2">
-              <span className="opacity-40">DESIGNER:</span>
+              <span className="opacity-40">{t('designer')}:</span>
               <span>IDNAFEN</span>
             </div>
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="opacity-40">SESSION:</span>
-              <span className="text-emerald-800 font-bold">ACTIVE</span>
-            </div>
-            
+
+            {/* Language Selection Button */}
             <button
-              onClick={() => setShowMobileModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-dark text-brand-darktext border border-brand-border hover:bg-brand-text hover:text-brand-bg transition-colors cursor-pointer text-[10px] font-black"
-              title="Connect via mobile instantly"
+              id="language-toggle-btn"
+              onClick={() => setLanguage(language === 'en' ? 'fr' : 'en')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-dark text-brand-darktext border border-brand-border hover:bg-brand-text hover:text-brand-bg transition-colors cursor-pointer text-[10px] font-black"
+              title="Switch language / Changer de langue"
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>MOBILE ACCESS</span>
+              <span className="font-mono">{language === 'en' ? 'FR' : 'EN'}</span>
             </button>
+
+            {/* Export JSON Button */}
+            <button
+              id="export-json-btn"
+              onClick={handleExportJSON}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-dark text-brand-darktext border border-brand-border hover:bg-brand-text hover:text-brand-bg transition-colors cursor-pointer text-[10px] font-black"
+              title="Export all audits to a JSON file"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('exportJson')}</span>
+              <span className="inline sm:hidden">{t('exportBrief')}</span>
+            </button>
+
+            {/* Import JSON Button */}
+            <button
+              id="import-json-btn"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-dark text-brand-darktext border border-brand-border hover:bg-brand-text hover:text-brand-bg transition-colors cursor-pointer text-[10px] font-black"
+              title="Import audits from a JSON file"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t('importJson')}</span>
+              <span className="inline sm:hidden">{t('importBrief')}</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImportJSON}
+              className="hidden"
+            />
 
             {activeProject && activeProject.devices.length === 0 && (
               <button
                 onClick={handleLoadDemo}
-                className="px-3 py-1 border border-brand-border hover:bg-brand-dark hover:text-brand-darktext transition-colors cursor-pointer text-[10px] font-bold"
+                className="px-3 py-1.5 border border-brand-border hover:bg-brand-dark hover:text-brand-darktext transition-colors cursor-pointer text-[10px] font-bold"
               >
-                Sample Audit
+                {t('sampleAuditBtn')}
               </button>
             )}
           </div>
@@ -345,7 +504,10 @@ export default function App() {
               />
 
               {/* Dynamic Energy Tips Panel Component */}
-              <TipsPanel project={activeProject} />
+              <TipsPanel 
+                project={activeProject} 
+                onUpdateProject={handleUpdateProject} 
+              />
             </div>
 
           </div>
@@ -355,12 +517,11 @@ export default function App() {
       {/* 3. Global Footer (High Density styling with metadata counters) */}
       <footer className="h-10 border-t border-brand-border px-6 flex items-center justify-between bg-brand-dark text-brand-darktext text-[9px] font-mono uppercase tracking-widest">
         <div className="truncate pr-4">
-          SYSTEM STATE: SYNCHRONIZED <span className="opacity-30">|</span> DESIGNED BY IDNAFEN
+          {t('designedBy')}
         </div>
         <div className="flex gap-4 shrink-0">
-          <span className="hidden md:inline">AUDITS: {projects.length}</span>
-          <span>STORAGE: LOCALSTORAGE</span>
-          <span>v1.0.4-STABLE</span>
+          <span className="hidden md:inline">{t('auditsCount')}: {projects.length}</span>
+          <span>{t('stableVersion')}</span>
         </div>
       </footer>
 
@@ -370,90 +531,8 @@ export default function App() {
           <div className="w-2 h-2 bg-emerald-500 animate-ping"></div>
           <div>
             <p className="text-[10px] font-mono font-bold tracking-wider uppercase">
-              NOTIF: {toast.message.toUpperCase()}
+              {t('notificationLabel')}: {toast.message.toUpperCase()}
             </p>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Mobile Sync Modal */}
-      {showMobileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141414]/75 backdrop-blur-sm">
-          <div className="bg-brand-panel border-2 border-brand-border max-w-sm w-full p-5 relative shadow-none rounded-none text-brand-text">
-            <button 
-              onClick={() => setShowMobileModal(false)}
-              className="absolute top-3 right-3 p-1 hover:bg-brand-dark hover:text-brand-darktext border border-transparent hover:border-brand-border transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            
-            <div className="space-y-4">
-              <div className="border-b border-brand-border pb-2">
-                <h3 className="text-xs font-mono font-black uppercase tracking-wider text-brand-text flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4" />
-                  INSTANT MOBILE ACCESS
-                </h3>
-                <p className="text-[10px] text-brand-text opacity-70 font-serif italic mt-0.5">
-                  Zero downloads, zero friction. Fluid and direct access.
-                </p>
-              </div>
-
-              <div className="flex flex-col items-center justify-center py-4 bg-white border border-brand-border">
-                {qrCodeUrl ? (
-                  <img 
-                    src={qrCodeUrl} 
-                    alt="Scan QR Code" 
-                    className="w-40 h-40 border border-brand-border p-1"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-40 h-40 flex items-center justify-center text-[9px] font-mono text-brand-text opacity-50 uppercase">
-                    GENERATING...
-                  </div>
-                )}
-                <div className="mt-2.5 text-[9px] font-mono font-bold tracking-wider text-brand-text text-center uppercase bg-brand-panel border border-brand-border px-2.5 py-0.5">
-                  SCAN TO LAUNCH
-                </div>
-                <a 
-                  href="https://heartfelt-frangollo-7d9b54.netlify.app" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="mt-2 text-[10px] font-mono text-emerald-800 hover:underline font-bold text-center"
-                >
-                  heartfelt-frangollo-7d9b54.netlify.app
-                </a>
-              </div>
-
-              <div className="space-y-2 text-[11px]">
-                <div className="flex gap-1.5">
-                  <div className="font-mono font-black text-brand-darktext shrink-0 bg-brand-dark w-4 h-4 flex items-center justify-center text-[9px]">1</div>
-                  <p className="leading-snug">
-                    Scan this QR code with your mobile camera to instantly load the production application.
-                  </p>
-                </div>
-                <div className="flex gap-1.5">
-                  <div className="font-mono font-black text-brand-darktext shrink-0 bg-brand-dark w-4 h-4 flex items-center justify-center text-[9px]">2</div>
-                  <p className="leading-snug">
-                    Your audits and modifications are persistent locally on your device via standard browser storage.
-                  </p>
-                </div>
-                <div className="flex gap-1.5">
-                  <div className="font-mono font-black text-brand-darktext shrink-0 bg-brand-dark w-4 h-4 flex items-center justify-center text-[9px]">3</div>
-                  <p className="leading-snug">
-                    <strong>Tip:</strong> Tap <span className="font-bold">Share &gt; Add to Home Screen</span> on your browser to install it as a native app!
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  onClick={() => setShowMobileModal(false)}
-                  className="w-full py-1.5 bg-brand-dark text-brand-darktext font-mono font-bold text-[10px] uppercase hover:bg-brand-text hover:text-brand-bg transition-colors cursor-pointer border border-brand-border"
-                >
-                  CLOSE ACCESS
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}

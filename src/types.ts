@@ -31,10 +31,13 @@ export interface Project {
   id: string;
   name: string;
   clientName?: string;
+  auditorName?: string;
   createdAt: string;
   devices: Device[];
   ratePerKWh: number; // Cost in local currency per kWh (e.g. 0.15)
   currency: string; // e.g. "$", "€", "£"
+  savedTipIds?: string[]; // IDs of personalized tips saved to Action Plan
+  customTips?: string[];  // Custom user-authored tips
 }
 
 export interface AuditSummary {

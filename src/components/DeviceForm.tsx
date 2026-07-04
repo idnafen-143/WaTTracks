@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Device, CategoryId } from '../types';
 import { CATEGORIES, APPLIANCE_PRESETS } from '../data/categories';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Sparkles, 
   Lightbulb, 
@@ -30,6 +31,7 @@ const CATEGORY_ICONS: Record<CategoryId, any> = {
 };
 
 export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<CategoryId>('lighting');
   const [watts, setWatts] = useState<string>('');
@@ -95,22 +97,23 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
             <span className="p-1 bg-brand-dark text-brand-darktext">
               <Plus className="w-4 h-4" />
             </span>
-            ADD APPLIANCE OR DEVICE
+            {t('addApplianceHeader')}
           </h2>
           <p className="text-brand-text opacity-70 text-xs font-serif italic mt-0.5">
-            Input custom parameters or select a preset from the register on the right.
+            {t('addApplianceSub')}
           </p>
         </div>
 
         {/* Category Icons Selector */}
         <div>
           <label className="block text-[10px] font-mono text-brand-text font-bold mb-1.5 uppercase tracking-wider">
-            DEVICE CATEGORY REGISTRY
+            {t('deviceCategoryRegistry')}
           </label>
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
             {CATEGORIES.map((cat) => {
               const IconComponent = CATEGORY_ICONS[cat.id];
               const isSelected = category === cat.id;
+              const catTranslated = t(cat.id);
               return (
                 <button
                   key={cat.id}
@@ -127,10 +130,10 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
                       ? 'bg-brand-dark border-brand-border text-brand-darktext font-bold'
                       : 'bg-white border-brand-border text-brand-text hover:bg-brand-panel-light'
                   }`}
-                  title={cat.label}
+                  title={catTranslated}
                 >
                   <IconComponent className="w-3.5 h-3.5 mb-1" />
-                  <span className="text-[8px] uppercase tracking-tighter truncate w-full px-0.5 leading-none">{cat.label.split(' ')[0]}</span>
+                  <span className="text-[8px] uppercase tracking-tighter truncate w-full px-0.5 leading-none">{catTranslated.split(' ')[0]}</span>
                 </button>
               );
             })}
@@ -140,7 +143,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-mono text-brand-text font-bold mb-1 uppercase tracking-wider">
-              DEVICE NAME OR MAKE *
+              {t('deviceNameMake')}
             </label>
             <input
               type="text"
@@ -154,7 +157,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
 
           <div>
             <label className="block text-[10px] font-mono text-brand-text font-bold mb-1 uppercase tracking-wider">
-              QUANTITY *
+              {t('quantityLabel')}
             </label>
             <div className="flex items-center bg-white border border-brand-border rounded-none">
               <button
@@ -186,7 +189,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[10px] font-mono text-brand-text font-bold mb-1 uppercase tracking-wider">
-              POWER (WATTS) *
+              {t('powerWatts')}
             </label>
             <div className="relative">
               <input
@@ -207,7 +210,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
 
           <div>
             <label className="block text-[10px] font-mono text-brand-text font-bold mb-1 uppercase tracking-wider">
-              DAILY HOURS *
+              {t('dailyHours')}
             </label>
             <div className="relative">
               <input
@@ -232,7 +235,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
           type="submit"
           className="w-full bg-brand-dark hover:bg-neutral-800 text-brand-darktext border border-brand-border font-bold py-2 rounded-none transition-colors text-xs cursor-pointer uppercase tracking-wider"
         >
-          Add Appliance to Audit
+          {t('addApplianceBtn')}
         </button>
       </form>
 
@@ -242,7 +245,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
           <div className="flex items-center gap-1.5 text-brand-text mb-2">
             <Sparkles className="w-3.5 h-3.5" />
             <h3 className="text-[10px] font-mono uppercase tracking-wider font-bold">
-              PRESETS: {CATEGORIES.find(c => c.id === category)?.label.toUpperCase()}
+              {t('presetsHeader', { category: t(category).toUpperCase() })}
             </h3>
           </div>
 
@@ -277,10 +280,7 @@ export default function DeviceForm({ onAddDevice, currency }: DeviceFormProps) {
           </div>
         </div>
 
-        <div className="mt-3 pt-2 border-t border-brand-border text-[9px] text-brand-text font-mono uppercase leading-relaxed">
-          <span className="font-bold block text-brand-dark">FORMULA:</span>
-          WH/D = WATTS × HOURS × QTY. KWH = WH ÷ 1000.
-        </div>
+
       </div>
     </div>
   );

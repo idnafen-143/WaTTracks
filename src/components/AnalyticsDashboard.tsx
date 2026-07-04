@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Project, AuditSummary, CategoryId } from '../types';
 import { CATEGORIES } from '../data/categories';
 import { exportProjectToPDF } from '../utils/pdfExport';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   FileDown, 
   DollarSign, 
@@ -20,10 +21,11 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({ project, summary }: AnalyticsDashboardProps) {
+  const { t, language } = useLanguage();
   const [hoveredCategory, setHoveredCategory] = useState<CategoryId | null>(null);
 
   // Calculate category stats
-  const catStats = CATEGORIES.map(cat => {
+  const baseCatStats = CATEGORIES.map(cat => {
     const devicesInCat = project.devices.filter(d => d.category === cat.id);
     const dailyKWh = devicesInCat.reduce((sum, d) => sum + ((d.watts * d.hoursPerDay * d.quantity) / 1000), 0);
     const count = devicesInCat.reduce((sum, d) => sum + d.quantity, 0);
@@ -47,11 +49,20 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
     };
   }).filter(c => c.count > 0);
 
+  let tempAccum = 0;
+  const catStats = baseCatStats.map(stat => {
+    const accumulatedBefore = tempAccum;
+    tempAccum += stat.percentage;
+    return {
+      ...stat,
+      accumulatedBefore
+    };
+  });
+
   // SVG Donut Chart Constants
   const radius = 50;
   const strokeWidth = 14;
   const circumference = 2 * Math.PI * radius; // ~314.159
-  let accumulatedPercent = 0;
 
   // Active hover category info for center of donut
   const activeDisplayCat = hoveredCategory 
@@ -74,17 +85,17 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
   // Average household daily is ~30 kWh. 
   // Let's rate this audit's daily usage:
   const getRating = (kwh: number) => {
-    if (kwh === 0) return { label: 'Incomplete Audit', color: 'text-slate-400', bg: 'bg-slate-950', border: 'border-slate-800', desc: 'Add devices to gauge rating.' };
-    if (kwh < 10) return { label: 'Eco-Champion (Ultra Low)', color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-500/30', desc: 'Minimal energy footprint. Highly optimized or small household.' };
-    if (kwh < 25) return { label: 'Efficient (Moderate)', color: 'text-cyan-400', bg: 'bg-cyan-950/20', border: 'border-cyan-500/30', desc: 'Standard usage range. Balanced power behavior.' };
-    if (kwh < 45) return { label: 'High Demand', color: 'text-amber-400', bg: 'bg-amber-950/20', border: 'border-amber-500/30', desc: 'Elevated usage. Opportunities exist to optimize high-wattage equipment.' };
-    return { label: 'Heavy Consumer (Excessive)', color: 'text-rose-400', bg: 'bg-rose-950/20', border: 'border-rose-500/30', desc: 'Significant energy drain. Urgently check heating loads, old devices, or standby baselines.' };
+    if (kwh === 0) return { label: t('ratingIncomplete'), color: 'text-slate-400', bg: 'bg-slate-950', border: 'border-slate-800', desc: t('ratingIncompleteDesc') };
+    if (kwh < 10) return { label: t('ratingEco'), color: 'text-emerald-400', bg: 'bg-emerald-950/20', border: 'border-emerald-500/30', desc: t('ratingEcoDesc') };
+    if (kwh < 25) return { label: t('ratingEfficient'), color: 'text-cyan-400', bg: 'bg-cyan-950/20', border: 'border-cyan-500/30', desc: t('ratingEfficientDesc') };
+    if (kwh < 45) return { label: t('ratingHigh'), color: 'text-amber-400', bg: 'bg-amber-950/20', border: 'border-amber-500/30', desc: t('ratingHighDesc') };
+    return { label: t('ratingHeavy'), color: 'text-rose-400', bg: 'bg-rose-950/20', border: 'border-rose-500/30', desc: t('ratingHeavyDesc') };
   };
 
   const rating = getRating(summary.totalDailyKWh);
 
   const handlePdfExport = () => {
-    exportProjectToPDF(project, summary);
+    exportProjectToPDF(project, summary, language);
   };
 
   return (
@@ -97,16 +108,16 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
             <Activity className="w-16 h-16 text-brand-dark" />
           </div>
           <span className="text-[10px] font-mono tracking-wider text-brand-darktext bg-brand-dark px-1.5 py-0.5 uppercase font-bold">
-            DAILY AUDIT METRIC
+            {t('dailyAuditMetric')}
           </span>
           <div className="mt-3 flex items-baseline gap-1">
             <span className="text-3xl font-bold text-brand-text tracking-tight font-sans">
               {project.currency}{summary.totalDailyCost.toFixed(2)}
             </span>
-            <span className="text-brand-text opacity-75 text-xs font-serif italic">/ day</span>
+            <span className="text-brand-text opacity-75 text-xs font-serif italic">{t('perDay')}</span>
           </div>
           <div className="mt-1 text-brand-text text-xs flex items-center gap-1 font-mono uppercase">
-            <span className="font-bold">{summary.totalDailyKWh.toFixed(2)} kWh</span> daily load
+            <span className="font-bold">{summary.totalDailyKWh.toFixed(2)} kWh</span> {t('dailyLoad')}
           </div>
         </div>
 
@@ -116,16 +127,16 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
             <TrendingUp className="w-16 h-16 text-brand-dark" />
           </div>
           <span className="text-[10px] font-mono tracking-wider text-brand-darktext bg-brand-dark px-1.5 py-0.5 uppercase font-bold">
-            EST. MONTHLY IMPACT
+            {t('estMonthlyImpact')}
           </span>
           <div className="mt-3 flex items-baseline gap-1">
             <span className="text-3xl font-bold text-brand-text tracking-tight font-sans">
               {project.currency}{summary.totalMonthlyCost.toFixed(2)}
             </span>
-            <span className="text-brand-text opacity-75 text-xs font-serif italic">/ month</span>
+            <span className="text-brand-text opacity-75 text-xs font-serif italic">{t('perMonth')}</span>
           </div>
           <div className="mt-1 text-brand-text text-xs flex items-center gap-1 font-mono uppercase">
-            <span className="font-bold">{summary.totalMonthlyKWh.toFixed(0)} kWh</span> monthly load
+            <span className="font-bold">{summary.totalMonthlyKWh.toFixed(0)} kWh</span> {t('monthlyLoad')}
           </div>
         </div>
 
@@ -135,16 +146,16 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
             <DollarSign className="w-16 h-16 text-brand-dark" />
           </div>
           <span className="text-[10px] font-mono tracking-wider text-brand-darktext bg-brand-dark px-1.5 py-0.5 uppercase font-bold">
-            EST. ANNUAL IMPACT
+            {t('estAnnualImpact')}
           </span>
           <div className="mt-3 flex items-baseline gap-1">
             <span className="text-3xl font-bold text-brand-text tracking-tight font-sans">
               {project.currency}{summary.totalAnnualCost.toFixed(2)}
             </span>
-            <span className="text-brand-text opacity-75 text-xs font-serif italic">/ year</span>
+            <span className="text-brand-text opacity-75 text-xs font-serif italic">{t('perYear')}</span>
           </div>
           <div className="mt-1 text-brand-text text-xs flex items-center gap-1 font-mono uppercase">
-            <span className="font-bold">{summary.totalAnnualKWh.toFixed(0)} kWh</span> annual load
+            <span className="font-bold">{summary.totalAnnualKWh.toFixed(0)} kWh</span> {t('annualLoad')}
           </div>
         </div>
       </div>
@@ -158,7 +169,7 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono font-bold text-brand-text uppercase tracking-wider">
-                ENERGY EFFICIENCY AUDIT RATING:
+                {t('ratingLabel')}
               </span>
               <span className="text-xs font-black uppercase tracking-wide px-1.5 py-0.5 bg-brand-dark text-brand-darktext font-mono">
                 {rating.label}
@@ -172,7 +183,7 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
           onClick={handlePdfExport}
           className="bg-brand-dark hover:bg-brand-text hover:text-brand-bg text-brand-darktext font-bold px-4 py-2 rounded-none text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer border border-brand-border grow-0 shrink-0 self-start sm:self-center uppercase tracking-wider font-mono"
         >
-          <FileDown className="w-3.5 h-3.5" /> EXPORT PDF REPORT
+          <FileDown className="w-3.5 h-3.5" /> {t('exportPdfBtn')}
         </button>
       </div>
 
@@ -182,16 +193,16 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
         <div className="bg-brand-panel border border-brand-border rounded-none p-4 shadow-none flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-mono uppercase tracking-wider text-brand-text font-black mb-0.5">
-              ENERGY ALLOCATION BY CATEGORY
+              {t('energyAllocationTitle')}
             </h3>
             <p className="text-xs text-brand-text opacity-70 font-serif italic">
-              Hover categories to isolate specific hardware load factors.
+              {t('energyAllocationSub')}
             </p>
           </div>
 
           {catStats.length === 0 ? (
             <div className="h-[240px] flex items-center justify-center text-brand-text opacity-60 text-xs font-mono uppercase">
-              NO INSTALLED DEVICES DETECTED
+              {t('noDevicesDetected')}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center my-4">
@@ -207,9 +218,9 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
                     strokeWidth={strokeWidth}
                   />
                   {catStats.map((stat) => {
-                    const strokeDasharray = `${(stat.percentage / 100) * circumference} ${circumference}`;
-                    const strokeDashoffset = circumference - (accumulatedPercent / 100) * circumference;
-                    accumulatedPercent += stat.percentage;
+                    const sliceLength = (stat.percentage / 100) * circumference;
+                    const strokeDasharray = `${sliceLength} ${circumference - sliceLength}`;
+                    const strokeDashoffset = circumference - (stat.accumulatedBefore / 100) * circumference;
 
                     const isFocused = hoveredCategory === stat.id;
 
@@ -246,7 +257,7 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
                   {activeDisplayCat ? (
                     <div className="text-center px-4">
                       <span className="text-[9px] font-mono uppercase tracking-wider text-brand-text font-black block truncate max-w-[100px]">
-                        {activeDisplayCat.label}
+                        {t(activeDisplayCat.id)}
                       </span>
                       <span className="text-xl font-bold text-brand-text block tracking-tighter">
                         {activeDisplayCat.percentage.toFixed(1)}%
@@ -258,10 +269,10 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
                   ) : (
                     <div className="text-center">
                       <span className="text-[10px] font-mono text-brand-text opacity-60 uppercase block">
-                        SELECT
+                        {t('donutSelect')}
                       </span>
                       <span className="text-xs font-bold text-brand-text block">
-                        CATEGORY
+                        {t('donutCategory')}
                       </span>
                     </div>
                   )}
@@ -297,7 +308,7 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
                           style={{ backgroundColor: color }}
                         />
                         <span className="text-[10px] font-mono uppercase truncate font-bold">
-                          {stat.label}
+                          {t(stat.id)}
                         </span>
                       </div>
                       <div className="text-right font-mono text-[10px] font-black pl-2 shrink-0">
@@ -311,7 +322,7 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
           )}
 
           <div className="pt-2 border-t border-brand-border text-[9px] text-brand-text font-mono uppercase text-center">
-            ACTIVE HARDWARE CATEGORIES: {catStats.length}
+            {t('activeCategoriesCount')} {catStats.length}
           </div>
         </div>
 
@@ -319,16 +330,16 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
         <div className="bg-brand-panel border border-brand-border rounded-none p-4 shadow-none flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-mono uppercase tracking-wider text-brand-text font-black mb-0.5">
-              CRITICAL POWER CONSUMPTION RANKS
+              {t('criticalRanksTitle')}
             </h3>
             <p className="text-xs text-brand-text opacity-70 font-serif italic">
-              Top 5 registered appliances sorted by daily kilowatt-hour drain.
+              {t('criticalRanksSub')}
             </p>
           </div>
 
           {topConsumers.length === 0 ? (
             <div className="h-[240px] flex items-center justify-center text-brand-text opacity-60 text-xs font-mono uppercase">
-              NO AUDIT INVENTORY REGISTERED
+              {t('noInventoryRegistered')}
             </div>
           ) : (
             <div className="space-y-3 my-4">
@@ -343,11 +354,11 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
                       <span className="font-bold text-brand-text truncate max-w-[180px]">
                         {idx + 1}. {device.name}
                         <span className="text-[9px] opacity-60 ml-1.5 font-normal">
-                          ({cat?.label})
+                          ({cat ? t(cat.id) : device.category})
                         </span>
                       </span>
                       <span className="font-bold text-brand-text">
-                        {device.dailyKWh.toFixed(2)} KWH <span className="text-[9px] opacity-60 font-normal">/ {project.currency}{device.annualCost.toFixed(0)} YR</span>
+                        {device.dailyKWh.toFixed(2)} KWH <span className="text-[9px] opacity-60 font-normal">/ {project.currency}{device.annualCost.toFixed(0)} {t('perYear').split('/')[1] || 'yr'}</span>
                       </span>
                     </div>
                     {/* Bar track */}
@@ -366,7 +377,7 @@ export default function AnalyticsDashboard({ project, summary }: AnalyticsDashbo
           )}
 
           <div className="pt-2 border-t border-brand-border text-[9px] text-brand-text font-mono uppercase text-center">
-            MAX PEAK: {topConsumers.length > 0 ? `${topConsumers[0].dailyKWh.toFixed(2)} KWH/DAY` : 'N/A'}
+            {t('maxPeakLabel')} {topConsumers.length > 0 ? `${topConsumers[0].dailyKWh.toFixed(2)} KWH/DAY` : 'N/A'}
           </div>
         </div>
       </div>
