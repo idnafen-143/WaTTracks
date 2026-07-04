@@ -12,10 +12,6 @@ WaTTrack is fully deployed and public on Netlify!
 
 🚀 **Access the application live:**
 * Primary Link: [https://wattrack.netlify.app](https://wattrack.netlify.app)
-* Alternate Deployment: [https://heartfelt-frangollo-7d9b54.netlify.app](https://heartfelt-frangollo-7d9b54.netlify.app)
-
-*(Accessing these public URLs bypasses development sandbox restrictions and Google AI Studio iframe constraints, ensuring 100% free, direct, and fluid access on any smartphone with no 403 authorization errors).*
-
 ---
 
 ## 🚀 Concept & Key Features
