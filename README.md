@@ -19,7 +19,6 @@ WaTTrack is fully deployed and public on Netlify!
 WaTTrack eliminates complex setup requirements, local databases, or external logins. It offers an instant-entry environment that runs immediately on any browser or mobile screen with zero prerequisites:
 
 - **Audit Designation Registry**: Create, manage, and toggle property energy audits. Perfect for auditing your main home, secondary units, or keeping track of multiple customer sites.
-- **Instant Mobile Access (QR Sync)**: Scan the generated live QR code directly on screen. The responsive viewport fits perfectly on smaller devices. You can add it directly to your home screen with zero installation.
 - **Hardware Appliance Input**: Custom input panel with built-in presets (Kitchen, HVAC, Lighting, Entertainment, Office, Laundry) to quickly register and audit household devices.
 - **Energy Allocation Breakdown**: Color-coded, industrial donut chart with custom hover stats providing a clean visual footprint of your energy allocation.
 - **Critical Power Rankings**: Visual ranking bar chart of the top five power-consuming devices to help isolate baseline utility hogs.
