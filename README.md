@@ -39,16 +39,6 @@ $$\text{Annual Cost} = \text{Daily kWh} \times 365 \times \text{Tariff Rate (per
 
 ---
 
-## 📱 Mobile-First Native Experience
-
-To run WaTTrack on your phone without installing bulky software packages or satisfying complex system prerequisites:
-1. Tap the **MOBILE ACCESS** button in the header bar.
-2. Scan the dynamic QR code with your mobile camera, or go directly to [https://wattrack.netlify.app](https://wattrack.netlify.app).
-3. **PWA Tip**: Tap **Share > Add to Home Screen** on Safari, or **Add to Home Screen** on Android Chrome, to launch WaTTrack as a full-screen, native application directly on your phone with zero clutter!
-4. **Offline Persistence**: Your audits and modifications are stored safely using local browser storage, allowing you to audit offline on site.
-
----
-
 ## 🎨 Aesthetic Guidelines
 
 Designed with a high-density, professional **Industrial Slate Theme**:
